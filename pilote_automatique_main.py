@@ -11,7 +11,7 @@ from sisopy31 import *
 #---------------------------------------------------------------------
 
 #Aircraft parameters
-g = 9.788                        # gravitational acceleration of the Earth: m.s^-2
+g = 9.788                        # gravitational contant of the Earth: m.s^-2
 mass = 8400                      # mass of the aircraft: kg
 c = 0.52                         # aircraft centering
 S = 34                           # surface: m^2
@@ -30,18 +30,18 @@ Cx0 = 0.0325                     # drag coefficient for null incidence
 Cz_alpha = 2.4                   # lift gradient coefficient WRT alpha
 Czδm = 0.48                      # lift gradient coefficient WRT δm
 δm0 = -0.002                     # equilibirum fin deflection for null lift
-alpha0 = 0.008                   # incidence for null lift and null fin deflection
+alpha0 = 0.008                   # incidence for null lift/fin deflection
 f = 0.609                        # aerodynamic center of body and wings: meter
-fδ = 0.9                         # aerodynamic center of fins (pitch axis): meter
+fδ = 0.9                         # aerodynamic center of fins: meter
 k = 0.42                         # polar coefficient
 Cmq = -0.32                      # damping coefficient 
-V_eq = Mach * V_sound            # speed of the aircraft at the equilibrium point
-Q = (1/2) * rho * V_eq**2        # dynamic pressure arround the aircraft at V_eq speed
-Xf = - (f *l_t)                  # position of the point Xf on the aircraft: m
-Xg = - (c * l_t)                 # position of the point Xg on the aircraft: m
-Xfδ = - (fδ * l_t)               # position of the point Xfdelta on the aircraft: m
-X = Xf-Xg                        # computing X
-Y = Xfδ - Xg                     # computing Y
+V_eq = Mach * V_sound            # speed of the aircraft at the equ point
+Q = (1/2) * rho * V_eq**2        # dynamic pressure at V_eq speed
+Xf = - (f *l_t)                  # position of Xf on the aircraft: m
+Xg = - (c * l_t)                 # position of Xg on the aircraft: m
+Xfδ = - (fδ * l_t)               # position of Xfdelta on the aircraft: m
+X = Xf-Xg                        # X
+Y = Xfδ - Xg                     # Y
 
 #---------------------------------------------------------------------
 
@@ -68,10 +68,10 @@ def angle():
         alpha_eq = alpha0 + (C_Zeq / Cz_alpha) - (Czδm / Cz_alpha) * δmeq
         Fp_xeq = ((Q * S * C_Xeq) / m.cos(alpha_eq))
         i += 1
-        print("alpha_eq = ", alpha_eq)
+        print("alpha_eq = ", round(alpha_eq, 10))
         
     print("-------------")
-    print("final alpha_eq = ", alpha_eq)
+    print("final alpha_eq = ", round(alpha_eq,10))
     print("found after", i, "iterations")
     
     return C_Zeq, C_Xeq, C_Xδm, alpha_eq, Fp_xeq
@@ -129,8 +129,7 @@ def space_model(C_Zeq,C_Xeq,C_Xδm, alpha_eq, Fp_xeq):
 
     return A,B
 
-A,B = function.space_model(C_Zeq, C_Xeq, C_Xδm, alpha_eq, Fp_xeq)
-
+A,B = space_model(C_Zeq, C_Xeq, C_Xδm, alpha_eq, Fp_xeq)
 
 print("\n----------------------------------")
 print("STUDY OF THE UNCONTROLLED AIRCRAFT")
@@ -198,7 +197,7 @@ def short_period(A,B):
 
     return TqDm_tf
 
-# TqDm_tf = short_period(A,B)
+TqDm_tf = short_period(A,B)
 
 
 print("\n(PHUGOID MODE)")
@@ -272,7 +271,7 @@ def phugoid_mode(A,B):
 
 phugoid_mode(A,B)
 
-"""
+
 print("\n----------------------------------")
 print("CONTROLLERS SYNTHESIS")
 print("----------------------------------")
@@ -286,7 +285,7 @@ def get_KRvalue(A,B):
                                             
     SS_q = control.ss(Anew, Bnew, Cq, Dnew)    # compute the state space and transfer function associated to find Kr
     TF_q = control.ss2tf(SS_q)
-    #sisotool(-TF_q) 
+    sisotool(-TF_q) 
 
     Kr = -0.13225   # From the sisotool when xi = 0.75 still 
     return Anew, Bnew, Cq, Dnew, Kr
@@ -369,12 +368,13 @@ print("GAMMA FEEDBACK LOOP")
 print("----------------------------------")
 def gamma_feedback_loop(Aq, Bq, Dq):
 
-    print("\n————————————————— Closed loop state space reprensentation ————————————————\n")
+    print("\n————————————————— Closed loop state space representation ————————————————\n")
     C_gamma  = np.array([[1],[0],[0],[0],[0]]).T
 
     SS_gamma  = control.ss(Aq, Bq, C_gamma , Dq)
     TF_gamma  = minreal(control.tf(SS_gamma))
-    K_gamma = 16.92251
+    sisotool(TF_gamma)
+    K_gamma = 16.42
     A_gamma = Aq - K_gamma * Bq @ C_gamma
     B_gamma = K_gamma * Bq
     D_gamma = K_gamma * Dq
@@ -497,7 +497,7 @@ def saturation(A_gamma_2, B_gamma_2, alpha_eq, alpha0):
             delta = abs(b - a)
             if f(m,TF,alpha_max) == 0:
                 return m
-            elif f(a,TF,alpha_max)*f(m,TF,alpha_max)  > 0:
+            elif f(a,TF,alpha_max)*f(m,TF,alpha_max) > 0:
                 a = m
             else:
                 b = m
@@ -512,23 +512,22 @@ def saturation(A_gamma_2, B_gamma_2, alpha_eq, alpha0):
     
     gamma_opt_2 = alpha_max/alpha_max_step
     
-    print('Gamma Opt')
-    print(gamma_opt)
+    print('optimal gamma (DICHOTOMIE METHOD)')
+    print("gamma = ", gamma_opt)
     
-    print('Gamma Opt 2')
-    print(gamma_opt_2)
+    print('optimal gamma (DIVIDING METHOD)')
+    print("gamma = ", gamma_opt_2)
 
     return alpha_max, gamma_max
 
 alpha_max, gamma_max  = saturation(A_gamma, B_gamma, alpha_eq, alpha0)
-
 
 print("\n----------------------------------")
 print("FLIGHT MANAGEMENT")
 print("----------------------------------")
 def flight_management(Aq, Bq, Az, Bz, Dz, Cl_State_space_z):
     initial_altitude = 0             #metres 
-    Cruise_altitude = 1800           #metres
+    Cruise_altitude = 1828.8          #metres
     final_altitude = 800            #metres
     gamma_ascent = np.deg2rad(12)        #path angle ascent setting: degree
     gamma_descent = np.deg2rad(-6)     #path angle descent setting: degree
@@ -548,7 +547,7 @@ def flight_management(Aq, Bq, Az, Bz, Dz, Cl_State_space_z):
 
     plt.plot(time_initial,altitude_initial,label = 'initial phase')
     plt.title("Initial phase of the aircraft")
-    plt.xlabel("time (seconds)")
+    plt.xlabel("Time (seconds)")
     plt.ylabel("Altitude (meters)")
     plt.show()
 
@@ -568,7 +567,7 @@ def flight_management(Aq, Bq, Az, Bz, Dz, Cl_State_space_z):
 
     plt.plot(time_ascent,altitude_ascent,label = 'ascent')
     plt.title("Altitude during the ascent phase at $gamma$ = " + str(round(np.rad2deg(gamma_ascent),3)) + " degrees")
-    plt.xlabel("time (seconds)")
+    plt.xlabel("Time (seconds)")
     plt.ylabel("Altitude (metres)")
     plt.show()
 
@@ -588,7 +587,7 @@ def flight_management(Aq, Bq, Az, Bz, Dz, Cl_State_space_z):
 
     plt.plot(time_cruise,altitude_cruise,label = 'cruise')
     plt.title("Cruise phase of the aircraft")
-    plt.xlabel("time (seconds)")
+    plt.xlabel("Time (seconds)")
     plt.ylabel("Altitude (meters)")
     plt.show()
 
@@ -654,4 +653,3 @@ def flight_management(Aq, Bq, Az, Bz, Dz, Cl_State_space_z):
     plt.show()
 
 flight_management(Aq, Bq, Az, Bz, Dz, Cl_State_space_z)
-"""
